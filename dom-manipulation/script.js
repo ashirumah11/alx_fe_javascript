@@ -183,3 +183,72 @@ function importFromJsonFile(event) {
   };
   fileReader.readAsText(event.target.files[0]);
 }
+let pendingConflict = null; // store current conflict for user choice
+
+function resolveConflicts(serverQuotes) {
+  const localMap = new Map(quotes.map((q) => [q.id, q]));
+  const serverMap = new Map(serverQuotes.map((q) => [q.id, q]));
+  const newQuotes = [];
+  let hasConflict = false;
+
+  serverQuotes.forEach((serverQuote) => {
+    const localQuote = localMap.get(serverQuote.id);
+
+    // Conflict if same ID but different text or category
+    if (localQuote && (localQuote.text !== serverQuote.text || localQuote.category !== serverQuote.category)) {
+      hasConflict = true;
+      pendingConflict = { localQuote, serverQuote };
+      openConflictModal(pendingConflict);
+    } else if (!localQuote) {
+      newQuotes.push(serverQuote); // new server quote
+    }
+  });
+
+  // Add any new quotes (non-conflicting)
+  if (newQuotes.length > 0) {
+    quotes.push(...newQuotes);
+    saveQuotes();
+    showNotification(`${newQuotes.length} new quotes synced from server.`, "success");
+  }
+
+  if (!hasConflict) {
+    showNotification("No conflicts found. Sync complete.", "info");
+  }
+}
+
+// ===== Modal Logic =====
+function openConflictModal(conflict) {
+  const modal = document.getElementById("conflictModal");
+  const conflictText = document.getElementById("conflictText");
+
+  conflictText.innerHTML = `
+    <b>Conflict on Quote ID:</b> ${conflict.localQuote.id}<br><br>
+    <b>Local:</b> "${conflict.localQuote.text}" (${conflict.localQuote.category})<br>
+    <b>Server:</b> "${conflict.serverQuote.text}" (${conflict.serverQuote.category})
+  `;
+
+  modal.style.display = "block";
+
+  // Button event handlers
+  document.getElementById("keepLocalBtn").onclick = () => {
+    closeConflictModal();
+    showNotification("Kept local version.", "info");
+  };
+
+  document.getElementById("useServerBtn").onclick = () => {
+    const index = quotes.findIndex((q) => q.id === conflict.localQuote.id);
+    if (index !== -1) {
+      quotes[index] = conflict.serverQuote;
+    } else {
+      quotes.push(conflict.serverQuote);
+    }
+    saveQuotes();
+    closeConflictModal();
+    showNotification("Replaced with server version.", "success");
+  };
+}
+
+function closeConflictModal() {
+  document.getElementById("conflictModal").style.display = "none";
+  pendingConflict = null;
+}
