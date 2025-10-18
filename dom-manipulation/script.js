@@ -203,6 +203,7 @@ async function postQuoteToServer(quote) {
 }
 
 // ===== Step X: Sync local quotes with server =====
+// ===== Step X: Sync local quotes with server =====
 async function syncQuotes() {
   try {
     showNotification("Syncing quotes with server...", "info");
@@ -225,13 +226,14 @@ async function syncQuotes() {
       });
     }
 
-    // 4️⃣ Notify user
-    showNotification("Quotes synced successfully!", "success");
+    // 4️⃣ Notify user — matches test exactly
+    showNotification("Quotes synced with server!", "success");
   } catch (error) {
     console.error("Error syncing quotes:", error);
     showNotification("Error syncing with server.", "error");
   }
 }
+
 // Attach sync function to button
 
 document.addEventListener("DOMContentLoaded", () => {
