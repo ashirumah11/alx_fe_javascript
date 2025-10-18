@@ -1,58 +1,61 @@
-// ===== Step 1: Initialize quotes array =====
+// =============================
+// STEP 1: INITIALIZE DATA
+// =============================
 let quotes = [
   { text: "The only limit to our realization of tomorrow is our doubts of today.", category: "Motivation" },
   { text: "In the middle of every difficulty lies opportunity.", category: "Inspiration" },
   { text: "Success is not final, failure is not fatal: It is the courage to continue that counts.", category: "Perseverance" }
 ];
+
 // Simulated server URL using a mock API
 const SERVER_URL = "https://jsonplaceholder.typicode.com/posts";
 
-
 let lastSelectedCategory = localStorage.getItem("selectedCategory") || "all";
+let pendingConflict = null; // For conflict resolution modal
 
-// ===== Step 2: Load saved quotes on startup =====
+// =============================
+// STEP 2: INITIALIZATION
+// =============================
 document.addEventListener("DOMContentLoaded", () => {
   const savedQuotes = localStorage.getItem("quotes");
-  if (savedQuotes) {
-    quotes = JSON.parse(savedQuotes);
-  }
+  if (savedQuotes) quotes = JSON.parse(savedQuotes);
 
-  // Build UI elements
   createAddQuoteForm();
   populateCategories();
 
-  // Load the last viewed quote from session storage (if any)
   const lastQuote = sessionStorage.getItem("lastQuote");
   if (lastQuote) {
     document.getElementById("quoteDisplay").innerHTML = lastQuote;
   } else {
-    filterQuotes(); // Show one initially (respects last selected category)
+    filterQuotes();
   }
 
-  // Refresh quote button
   const btn = document.getElementById("newQuote");
-  if (btn) {
-    btn.addEventListener("click", filterQuotes);
-  }
+  if (btn) btn.addEventListener("click", filterQuotes);
+
+  fetchQuotesFromServer(); // ✅ Fetch from mock server at startup
+
+  // Optional auto-sync every 30s
+  setInterval(fetchQuotesFromServer, 30000);
 });
 
-// ===== Step 3: Save quotes to local storage =====
+// =============================
+// STEP 3: LOCAL STORAGE HANDLING
+// =============================
 function saveQuotes() {
   localStorage.setItem("quotes", JSON.stringify(quotes));
 }
 
-// ===== Step 4: Populate categories dynamically =====
+// =============================
+// STEP 4: CATEGORY FILTER
+// =============================
 function populateCategories() {
   const filter = document.getElementById("categoryFilter");
   if (!filter) return;
 
-  // Get unique categories (plus “all”)
   const categories = ["all", ...new Set(quotes.map(q => q.category))];
-
-  // Clear existing options
   filter.innerHTML = "";
 
-  // Populate dropdown
   categories.forEach(cat => {
     const option = document.createElement("option");
     option.value = cat;
@@ -62,83 +65,70 @@ function populateCategories() {
   });
 }
 
-// ===== Step 5: Display a random quote =====
+// =============================
+// STEP 5: SHOW RANDOM QUOTE
+// =============================
 function showRandomQuote(filteredQuotes = quotes) {
-  const quoteContainer = document.getElementById("quoteDisplay");
-
-  if (!quoteContainer) return;
+  const container = document.getElementById("quoteDisplay");
+  if (!container) return;
 
   if (filteredQuotes.length === 0) {
-    quoteContainer.innerHTML = "<p>No quotes available for this category.</p>";
+    container.innerHTML = "<p>No quotes available for this category.</p>";
     return;
   }
 
-  const randomIndex = Math.floor(Math.random() * filteredQuotes.length);
-  const randomQuote = filteredQuotes[randomIndex];
-
-  const quoteHTML = `
+  const randomQuote = filteredQuotes[Math.floor(Math.random() * filteredQuotes.length)];
+  const html = `
     <p class="quote-text">"${randomQuote.text}"</p>
     <p class="quote-category">— ${randomQuote.category}</p>
   `;
-  quoteContainer.innerHTML = quoteHTML;
-
-  // Save this quote in sessionStorage as last viewed
-  sessionStorage.setItem("lastQuote", quoteHTML);
+  container.innerHTML = html;
+  sessionStorage.setItem("lastQuote", html);
 }
 
-// ===== Step 6: Filter quotes by category =====
+// =============================
+// STEP 6: FILTER BY CATEGORY
+// =============================
 function filterQuotes() {
   const filter = document.getElementById("categoryFilter");
-  const selectedCategory = filter ? filter.value : "all";
+  const selected = filter ? filter.value : "all";
+  localStorage.setItem("selectedCategory", selected);
+  lastSelectedCategory = selected;
 
-  // Save filter selection
-  localStorage.setItem("selectedCategory", selectedCategory);
-  lastSelectedCategory = selectedCategory;
+  const filtered = selected === "all"
+    ? quotes
+    : quotes.filter(q => q.category === selected);
 
-  const filteredQuotes =
-    selectedCategory === "all"
-      ? quotes
-      : quotes.filter(q => q.category === selectedCategory);
-
-  showRandomQuote(filteredQuotes);
+  showRandomQuote(filtered);
 }
 
-// ===== Step 7: Create "Add Quote" form dynamically =====
+// =============================
+// STEP 7: ADD QUOTE FORM
+// =============================
 function createAddQuoteForm() {
-  const formContainer = document.getElementById("formContainer");
-  if (!formContainer) return;
+  const container = document.getElementById("formContainer");
+  if (!container) return;
 
-  formContainer.innerHTML = ""; // prevent duplicates
-
+  container.innerHTML = "";
   const form = document.createElement("form");
   form.id = "addQuoteForm";
 
   const quoteInput = document.createElement("input");
-  quoteInput.type = "text";
   quoteInput.placeholder = "Enter quote text";
   quoteInput.required = true;
-  quoteInput.id = "quoteText";
 
   const categoryInput = document.createElement("input");
-  categoryInput.type = "text";
   categoryInput.placeholder = "Enter category";
   categoryInput.required = true;
-  categoryInput.id = "quoteCategory";
 
   const submitBtn = document.createElement("button");
-  submitBtn.type = "submit";
   submitBtn.textContent = "Add Quote";
 
-  // Append elements to form
-  form.appendChild(quoteInput);
-  form.appendChild(categoryInput);
-  form.appendChild(submitBtn);
-  formContainer.appendChild(form);
+  form.append(quoteInput, categoryInput, submitBtn);
+  container.appendChild(form);
 
-  // Handle form submission
   form.addEventListener("submit", (e) => {
     e.preventDefault();
-
     const newQuote = {
       text: quoteInput.value.trim(),
       category: categoryInput.value.trim(),
@@ -146,9 +136,10 @@ function createAddQuoteForm() {
 
     if (newQuote.text && newQuote.category) {
       quotes.push(newQuote);
-      saveQuotes(); // save to local storage
-      populateCategories(); // update dropdown
-      alert("New quote added successfully!");
+      saveQuotes();
+      populateCategories();
+      postQuoteToServer(newQuote); // ✅ Send to mock API
+      showNotification("Quote added and synced with server!", "success");
       form.reset();
     } else {
       alert("Please fill in both fields.");
@@ -156,116 +147,109 @@ function createAddQuoteForm() {
   });
 }
 
-// ===== Step 8: Export quotes to JSON file =====
+// =============================
+// STEP 8: EXPORT & IMPORT JSON
+// =============================
 function exportToJsonFile() {
-  const jsonStr = JSON.stringify(quotes, null, 2);
-  const blob = new Blob([jsonStr], { type: "application/json" });
+  const json = JSON.stringify(quotes, null, 2);
+  const blob = new Blob([json], { type: "application/json" });
   const url = URL.createObjectURL(blob);
 
   const a = document.createElement("a");
   a.href = url;
   a.download = "quotes.json";
   a.click();
-
   URL.revokeObjectURL(url);
 }
 
-// ===== Step 9: Import quotes from JSON file =====
-// ===== Fetch quotes from server =====
+function importFromJsonFile(event) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const imported = JSON.parse(e.target.result);
+    quotes.push(...imported);
+    saveQuotes();
+    showNotification("Quotes imported successfully!", "success");
+  };
+  reader.readAsText(event.target.files[0]);
+}
+
+// =============================
+// STEP 9: SERVER SYNC
+// =============================
 async function fetchQuotesFromServer() {
   try {
-    const response = await fetch("https://jsonplaceholder.typicode.com/posts"); // replace with your real URL or local file
-    if (!response.ok) throw new Error("Failed to fetch quotes");
-
-    const serverQuotes = await response.json();
-
-    // Merge and handle conflicts
+    const res = await fetch(SERVER_URL);
+    if (!res.ok) throw new Error("Failed to fetch");
+    const serverQuotes = await res.json();
     resolveConflicts(serverQuotes);
-  } catch (error) {
-    console.error("Error fetching quotes:", error);
+  } catch (err) {
+    console.error("Fetch error:", err);
     showNotification("Failed to fetch quotes from server.", "error");
   }
 }
-// ===== Step 11: Show notification messages =====
-function showNotification(message, type = "info") {
-  let notif = document.getElementById("notification");
 
-  // Create container if missing
-  if (!notif) {
-    notif = document.createElement("div");
-    notif.id = "notification";
-    document.body.appendChild(notif);
+async function postQuoteToServer(quote) {
+  try {
+    const res = await fetch(SERVER_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(quote),
+    });
+    const data = await res.json();
+    console.log("Quote synced to server:", data);
+  } catch (err) {
+    console.error("Error posting to server:", err);
   }
-
-  // Style and display
-  notif.textContent = message;
-  notif.className = `notification ${type}`; // example: "notification success"
-  notif.style.display = "block";
-
-  // Auto-hide after 3 seconds
-  setTimeout(() => {
-    notif.style.display = "none";
-  }, 3000);
 }
-let pendingConflict = null; // store current conflict for user choice
 
+// =============================
+// STEP 10: CONFLICT HANDLING
+// =============================
 function resolveConflicts(serverQuotes) {
-  const localMap = new Map(quotes.map((q) => [q.id, q]));
-  const serverMap = new Map(serverQuotes.map((q) => [q.id, q]));
+  const localMap = new Map(quotes.map(q => [q.id, q]));
   const newQuotes = [];
-  let hasConflict = false;
+  let conflictFound = false;
 
-  serverQuotes.forEach((serverQuote) => {
-    const localQuote = localMap.get(serverQuote.id);
-
-    // Conflict if same ID but different text or category
-    if (localQuote && (localQuote.text !== serverQuote.text || localQuote.category !== serverQuote.category)) {
-      hasConflict = true;
-      pendingConflict = { localQuote, serverQuote };
+  serverQuotes.forEach(serverQuote => {
+    const local = localMap.get(serverQuote.id);
+    if (local && (local.text !== serverQuote.text || local.category !== serverQuote.category)) {
+      conflictFound = true;
+      pendingConflict = { local, server: serverQuote };
       openConflictModal(pendingConflict);
-    } else if (!localQuote) {
-      newQuotes.push(serverQuote); // new server quote
+    } else if (!local) {
+      newQuotes.push(serverQuote);
     }
   });
 
-  // Add any new quotes (non-conflicting)
   if (newQuotes.length > 0) {
     quotes.push(...newQuotes);
     saveQuotes();
-    showNotification(`${newQuotes.length} new quotes synced from server.`, "success");
+    showNotification(`${newQuotes.length} new quotes synced.`, "success");
   }
 
-  if (!hasConflict) {
-    showNotification("No conflicts found. Sync complete.", "info");
-  }
+  if (!conflictFound) showNotification("No conflicts found. Sync complete.", "info");
 }
 
-// ===== Modal Logic =====
 function openConflictModal(conflict) {
   const modal = document.getElementById("conflictModal");
-  const conflictText = document.getElementById("conflictText");
+  const text = document.getElementById("conflictText");
 
-  conflictText.innerHTML = `
-    <b>Conflict on Quote ID:</b> ${conflict.localQuote.id}<br><br>
-    <b>Local:</b> "${conflict.localQuote.text}" (${conflict.localQuote.category})<br>
-    <b>Server:</b> "${conflict.serverQuote.text}" (${conflict.serverQuote.category})
+  text.innerHTML = `
+    <b>Conflict on Quote ID:</b> ${conflict.local.id}<br><br>
+    <b>Local:</b> "${conflict.local.text}" (${conflict.local.category})<br>
+    <b>Server:</b> "${conflict.server.text}" (${conflict.server.category})
   `;
-
   modal.style.display = "block";
 
-  // Button event handlers
   document.getElementById("keepLocalBtn").onclick = () => {
     closeConflictModal();
     showNotification("Kept local version.", "info");
   };
 
   document.getElementById("useServerBtn").onclick = () => {
-    const index = quotes.findIndex((q) => q.id === conflict.localQuote.id);
-    if (index !== -1) {
-      quotes[index] = conflict.serverQuote;
-    } else {
-      quotes.push(conflict.serverQuote);
-    }
+    const index = quotes.findIndex(q => q.id === conflict.local.id);
+    if (index !== -1) quotes[index] = conflict.server;
+    else quotes.push(conflict.server);
     saveQuotes();
     closeConflictModal();
     showNotification("Replaced with server version.", "success");
@@ -275,4 +259,22 @@ function openConflictModal(conflict) {
 function closeConflictModal() {
   document.getElementById("conflictModal").style.display = "none";
   pendingConflict = null;
+}
+
+// =============================
+// STEP 11: NOTIFICATIONS
+// =============================
+function showNotification(message, type = "info") {
+  let notif = document.getElementById("notification");
+  if (!notif) {
+    notif = document.createElement("div");
+    notif.id = "notification";
+    document.body.appendChild(notif);
+  }
+
+  notif.textContent = message;
+  notif.className = `notification ${type}`;
+  notif.style.display = "block";
+
+  setTimeout(() => notif.style.display = "none", 3000);
 }
