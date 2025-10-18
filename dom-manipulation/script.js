@@ -202,6 +202,44 @@ async function postQuoteToServer(quote) {
   }
 }
 
+// ===== Step X: Sync local quotes with server =====
+async function syncQuotes() {
+  try {
+    showNotification("Syncing quotes with server...", "info");
+
+    // 1️⃣ Fetch latest quotes from server
+    const response = await fetch(SERVER_URL);
+    if (!response.ok) throw new Error("Failed to fetch from server");
+
+    const serverQuotes = await response.json();
+
+    // 2️⃣ Resolve conflicts between local & server data
+    resolveConflicts(serverQuotes);
+
+    // 3️⃣ Push any new local quotes to server (simulation)
+    for (const quote of quotes) {
+      await fetch(SERVER_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(quote),
+      });
+    }
+
+    // 4️⃣ Notify user
+    showNotification("Quotes synced successfully!", "success");
+  } catch (error) {
+    console.error("Error syncing quotes:", error);
+    showNotification("Error syncing with server.", "error");
+  }
+}
+// Attach sync function to button
+
+document.addEventListener("DOMContentLoaded", () => {
+  // ... existing code ...
+  const syncBtn = document.getElementById("syncBtn");
+  if (syncBtn) syncBtn.addEventListener("click", syncQuotes);
+});
+
 // =============================
 // STEP 10: CONFLICT HANDLING
 // =============================
