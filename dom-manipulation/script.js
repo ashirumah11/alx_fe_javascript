@@ -168,20 +168,41 @@ function exportToJsonFile() {
 }
 
 // ===== Step 9: Import quotes from JSON file =====
-function importFromJsonFile(event) {
-  const fileReader = new FileReader();
-  fileReader.onload = function (event) {
-    try {
-      const importedQuotes = JSON.parse(event.target.result);
-      quotes.push(...importedQuotes);
-      saveQuotes();
-      populateCategories();
-      alert("Quotes imported successfully!");
-    } catch (error) {
-      alert("Invalid JSON file. Please check your data.");
-    }
-  };
-  fileReader.readAsText(event.target.files[0]);
+// ===== Fetch quotes from server =====
+async function fetchQuotesFromServer() {
+  try {
+    const response = await fetch("https://example.com/quotes.json"); // replace with your real URL or local file
+    if (!response.ok) throw new Error("Failed to fetch quotes");
+
+    const serverQuotes = await response.json();
+
+    // Merge and handle conflicts
+    resolveConflicts(serverQuotes);
+  } catch (error) {
+    console.error("Error fetching quotes:", error);
+    showNotification("Failed to fetch quotes from server.", "error");
+  }
+}
+// ===== Step 11: Show notification messages =====
+function showNotification(message, type = "info") {
+  let notif = document.getElementById("notification");
+
+  // Create container if missing
+  if (!notif) {
+    notif = document.createElement("div");
+    notif.id = "notification";
+    document.body.appendChild(notif);
+  }
+
+  // Style and display
+  notif.textContent = message;
+  notif.className = `notification ${type}`; // example: "notification success"
+  notif.style.display = "block";
+
+  // Auto-hide after 3 seconds
+  setTimeout(() => {
+    notif.style.display = "none";
+  }, 3000);
 }
 let pendingConflict = null; // store current conflict for user choice
 
