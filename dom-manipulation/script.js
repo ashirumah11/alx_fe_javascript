@@ -4,6 +4,9 @@ let quotes = [
   { text: "In the middle of every difficulty lies opportunity.", category: "Inspiration" },
   { text: "Success is not final, failure is not fatal: It is the courage to continue that counts.", category: "Perseverance" }
 ];
+// Simulated server URL using a mock API
+const SERVER_URL = "https://jsonplaceholder.typicode.com/posts";
+
 
 let lastSelectedCategory = localStorage.getItem("selectedCategory") || "all";
 
@@ -171,7 +174,7 @@ function exportToJsonFile() {
 // ===== Fetch quotes from server =====
 async function fetchQuotesFromServer() {
   try {
-    const response = await fetch("https://example.com/quotes.json"); // replace with your real URL or local file
+    const response = await fetch("https://jsonplaceholder.typicode.com/posts"); // replace with your real URL or local file
     if (!response.ok) throw new Error("Failed to fetch quotes");
 
     const serverQuotes = await response.json();
