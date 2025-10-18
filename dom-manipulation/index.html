@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
     <title>Dynamic Quote Generator</title>
   </head>
   <body>
@@ -26,6 +27,18 @@
     <button onclick="exportToJsonFile()">Export Quotes</button>
     <input type="file" accept=".json" onchange="importFromJsonFile(event)">
   </div>
+
+<!-- Conflict Resolution Modal -->
+<div id="conflictModal" class="modal">
+  <div class="modal-content">
+    <h3>Conflict Detected</h3>
+    <p id="conflictText"></p>
+    <div class="btn-group">
+      <button id="keepLocalBtn">Keep Local</button>
+      <button id="useServerBtn">Use Server</button>
+    </div>
+  </div>
+</div>
 
   <script src="script.js"></script>
   </body>
